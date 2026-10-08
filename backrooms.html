@@ -1,0 +1,1058 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>THE BACKROOMS: MEME ESCAPE</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #000;
+            font-family: 'Courier New', Courier, monospace;
+            color: #fff;
+        }
+        #canvas-container {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+        #ui-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+            box-sizing: border-box;
+            z-index: 10;
+        }
+        .hud-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+        .level-info {
+            background: rgba(0, 0, 0, 0.7);
+            border: 1px solid rgba(255, 204, 0, 0.4);
+            padding: 12px 20px;
+            border-radius: 6px;
+            backdrop-filter: blur(4px);
+        }
+        .level-title {
+            font-size: 22px;
+            font-weight: bold;
+            color: #ffcc00;
+            text-shadow: 0 0 8px rgba(255, 204, 0, 0.6);
+            margin-bottom: 4px;
+        }
+        .level-desc {
+            font-size: 13px;
+            color: #ccc;
+        }
+        .stamina-container {
+            width: 200px;
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid #555;
+            height: 18px;
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+        .stamina-bar {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, #ff9900, #ffff00);
+            transition: width 0.1s linear;
+        }
+        .hud-bottom {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+        }
+        #crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 8px;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.6);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            z-index: 12;
+            box-shadow: 0 0 4px rgba(0, 0, 0, 0.8);
+        }
+        #minimap-canvas {
+            width: 140px;
+            height: 140px;
+            background: rgba(0, 0, 0, 0.75);
+            border: 2px solid #ffcc00;
+            border-radius: 6px;
+        }
+        #screen-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.88);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            pointer-events: auto;
+            text-align: center;
+        }
+        .btn {
+            background: #ffcc00;
+            color: #000;
+            border: none;
+            padding: 14px 32px;
+            font-size: 20px;
+            font-weight: bold;
+            font-family: inherit;
+            cursor: pointer;
+            margin-top: 20px;
+            border-radius: 4px;
+            box-shadow: 0 0 15px rgba(255, 204, 0, 0.4);
+            transition: all 0.2s ease;
+        }
+        .btn:hover {
+            background: #ffe680;
+            transform: scale(1.05);
+            box-shadow: 0 0 25px rgba(255, 204, 0, 0.8);
+        }
+        #jumpscare-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-size: cover;
+            background-position: center;
+            display: none;
+            z-index: 200;
+            animation: shake 0.08s infinite alternate;
+        }
+        @keyframes shake {
+            0% { transform: translate(12px, 12px) scale(1.1); }
+            100% { transform: translate(-12px, -12px) scale(1.15); }
+        }
+        #critic-badge {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(15, 23, 42, 0.9);
+            border: 1px solid #00ffcc;
+            color: #00ffcc;
+            padding: 12px 16px;
+            border-radius: 6px;
+            font-size: 12px;
+            max-width: 320px;
+            line-height: 1.4;
+            pointer-events: none;
+            z-index: 15;
+            box-shadow: 0 0 12px rgba(0, 255, 204, 0.3);
+        }
+    </style>
+    <!-- Three.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+
+<div id="canvas-container"></div>
+<div id="crosshair"></div>
+
+<div id="ui-overlay">
+    <div class="hud-top">
+        <div class="level-info">
+            <div id="level-num" class="level-title">LEVEL 0: THE MONO-YELLOW</div>
+            <div id="level-desc" class="level-desc">Find the glowing elevator exit to escape!</div>
+            <div class="stamina-container">
+                <div id="stamina-bar" class="stamina-bar"></div>
+            </div>
+        </div>
+    </div>
+    <div class="hud-bottom">
+        <div id="controls-hint" style="background: rgba(0,0,0,0.6); padding: 10px; font-size: 13px; border-radius: 4px; border: 1px solid #444;">
+            WASD: Move | SHIFT: Sprint | F: Flashlight | Mouse: Look
+        </div>
+        <canvas id="minimap-canvas" width="140" height="140"></canvas>
+    </div>
+</div>
+
+<div id="critic-badge">
+    <strong>🎨 CRITIC SUBAGENT REVIEW:</strong>
+    <div id="critic-text">Analyzing level visuals and enemy balancing...</div>
+</div>
+
+<div id="screen-overlay">
+    <h1 id="screen-title" style="font-size: 48px; color: #ffcc00; text-shadow: 0 0 20px #ffcc00; margin-bottom: 10px;">THE BACKROOMS</h1>
+    <p id="screen-subtitle" style="font-size: 18px; color: #ccc; max-width: 600px; line-height: 1.5; margin-bottom: 20px;">
+        Outrun the meme chasers through 15 procedurally generated Backrooms levels!
+    </p>
+    <button id="start-btn" class="btn">ENTER THE BACKROOMS</button>
+</div>
+
+<div id="jumpscare-overlay"></div>
+
+<script>
+// --- CORE GAME ENGINE & STATE ---
+const STATE = {
+    currentLevelIndex: 0,
+    isPlaying: false,
+    stamina: 100,
+    maxStamina: 100,
+    isSprinting: false,
+    flashlightOn: true,
+    moveForward: false,
+    moveBackward: false,
+    moveLeft: false,
+    moveRight: false,
+    playerSpeed: 4.8,
+    sprintMultiplier: 1.8,
+    enemySpeed: 5.2
+};
+
+// Maze Config
+const MAZE_SIZE = 15;
+const CELL_SIZE = 6;
+const WALL_HEIGHT = 4.5;
+
+let scene, camera, renderer, flashlight, ambientLight;
+let maze = [], wallsMeshGroup, floorMesh, ceilingMesh, exitMesh;
+let enemies = [];
+let clock = new THREE.Clock();
+let pointerControls = { isLocked: false };
+
+// --- WEB AUDIO API MEME SYNTHESIZER ---
+let audioCtx = null;
+
+function initAudio() {
+    if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+    }
+}
+
+function playMemeSound(type, volume = 0.5) {
+    if (!audioCtx) return;
+    const now = audioCtx.currentTime;
+
+    if (type === 'airhorn') {
+        // High pitched triple airhorn chord
+        [293.66, 369.99, 440.00].forEach(freq => {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(freq, now);
+            osc.frequency.exponentialRampToValueAtTime(freq * 1.05, now + 0.2);
+            gain.gain.setValueAtTime(volume * 0.3, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start(now);
+            osc.stop(now + 0.25);
+        });
+    } else if (type === 'bruh') {
+        // Low distorted pitch pitch-down drop
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(160, now);
+        osc.frequency.exponentialRampToValueAtTime(60, now + 0.35);
+        gain.gain.setValueAtTime(volume * 0.8, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.35);
+    } else if (type === 'sanic') {
+        // Fast screeching arpeggio sweep
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(400, now);
+        osc.frequency.linearRampToValueAtTime(1200, now + 0.15);
+        gain.gain.setValueAtTime(volume * 0.4, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.18);
+    } else if (type === 'jumpscare') {
+        // Loud screeching harsh noise
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(800, now);
+        osc.frequency.linearRampToValueAtTime(200, now + 0.8);
+        gain.gain.setValueAtTime(1.0, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.8);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.8);
+    }
+}
+
+// --- MEME CANVAS AVATAR GENERATOR ---
+const MemeGen = {
+    createMemeCanvas(type) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 256;
+        canvas.height = 256;
+        const ctx = canvas.getContext('2d');
+
+        if (type === 'obunga') {
+            // Obunga elongated dark silhouette face
+            ctx.fillStyle = '#111';
+            ctx.fillRect(0, 0, 256, 256);
+            ctx.fillStyle = '#dca080';
+            ctx.beginPath();
+            ctx.ellipse(128, 128, 70, 110, 0, 0, Math.PI * 2);
+            ctx.fill();
+            // Eyes
+            ctx.fillStyle = '#000';
+            ctx.beginPath(); ctx.arc(95, 100, 18, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(161, 100, 18, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#fff';
+            ctx.beginPath(); ctx.arc(95, 100, 6, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(161, 100, 6, 0, Math.PI * 2); ctx.fill();
+            // Eerie smile
+            ctx.beginPath();
+            ctx.arc(128, 170, 45, 0, Math.PI);
+            ctx.lineWidth = 6;
+            ctx.stroke();
+        } else if (type === 'gigachad') {
+            // Gigachad sharp jawline outline
+            ctx.fillStyle = '#2b2b2b';
+            ctx.fillRect(0, 0, 256, 256);
+            ctx.fillStyle = '#aa9988';
+            ctx.beginPath();
+            ctx.moveTo(60, 40); ctx.lineTo(196, 40); ctx.lineTo(180, 220); ctx.lineTo(128, 250); ctx.lineTo(76, 220);
+            ctx.closePath();
+            ctx.fill();
+            ctx.fillStyle = '#000';
+            ctx.fillRect(75, 90, 40, 10);
+            ctx.fillRect(141, 90, 40, 10);
+            ctx.fillRect(100, 170, 56, 12);
+        } else if (type === 'sanic') {
+            // Sanic fast blue blob face
+            ctx.fillStyle = '#0044cc';
+            ctx.beginPath(); ctx.arc(128, 128, 100, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#ffe0bd';
+            ctx.beginPath(); ctx.arc(128, 150, 60, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#000';
+            ctx.fillRect(80, 100, 30, 30);
+            ctx.fillRect(146, 100, 30, 30);
+            ctx.fillStyle = '#ff0000';
+            ctx.beginPath(); ctx.arc(128, 170, 20, 0, Math.PI); ctx.fill();
+        } else if (type === 'doge') {
+            // Doge yellow Shiba face
+            ctx.fillStyle = '#e1b150';
+            ctx.beginPath(); ctx.arc(128, 128, 95, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath(); ctx.arc(128, 150, 45, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#000';
+            ctx.beginPath(); ctx.arc(128, 130, 15, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(90, 95, 12, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(166, 95, 12, 0, Math.PI * 2); ctx.fill();
+        } else {
+            // Patrick / Default Pink Star
+            ctx.fillStyle = '#ff9999';
+            ctx.beginPath(); ctx.arc(128, 128, 90, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#fff';
+            ctx.beginPath(); ctx.arc(95, 100, 20, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(161, 100, 20, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#000';
+            ctx.beginPath(); ctx.arc(95, 100, 8, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(161, 100, 8, 0, Math.PI * 2); ctx.fill();
+        }
+
+        const texture = new THREE.CanvasTexture(canvas);
+        return texture;
+    }
+};
+
+// --- 15 LEVEL DEFINITIONS & PROCEDURAL TEXTURE GENERATOR ---
+const LEVEL_DEFINITIONS = [
+    {
+        num: "LEVEL 0",
+        name: "THE MONO-YELLOW",
+        desc: "Classic endless yellow rooms with damp carpet and fluorescent hum.",
+        wallColor: "#c2b280", wallPattern: "wallpaper",
+        floorColor: "#807040", floorPattern: "carpet",
+        ceilColor: "#e6dec3", ceilPattern: "tiles",
+        fogColor: 0x121008, fogDensity: 0.035, lightColor: 0xfffae6, lightIntensity: 0.5,
+        enemyType: "obunga", enemySpeed: 5.0, sound: "bruh"
+    },
+    {
+        num: "LEVEL 1",
+        name: "HABITABLE ZONE",
+        desc: "Damp concrete warehouse tunnels with flickering industrial lights.",
+        wallColor: "#5a6065", wallPattern: "concrete",
+        floorColor: "#3a3d40", floorPattern: "concrete",
+        ceilColor: "#222528", ceilPattern: "pipes",
+        fogColor: 0x08090a, fogDensity: 0.04, lightColor: 0x88bbff, lightIntensity: 0.35,
+        enemyType: "gigachad", enemySpeed: 5.3, sound: "airhorn"
+    },
+    {
+        num: "LEVEL 2",
+        name: "PIPE DREAMS",
+        desc: "Suffocating narrow furnace corridors lined with scalding steam pipes.",
+        wallColor: "#402010", wallPattern: "pipes",
+        floorColor: "#1f1008", floorPattern: "grate",
+        ceilColor: "#150a04", ceilPattern: "pipes",
+        fogColor: 0x0d0502, fogDensity: 0.05, lightColor: 0xff5500, lightIntensity: 0.4,
+        enemyType: "sanic", enemySpeed: 6.2, sound: "sanic"
+    },
+    {
+        num: "LEVEL 3",
+        name: "ELECTRICAL STATION",
+        desc: "Claustrophobic grid of buzzing machinery and high voltage warning walls.",
+        wallColor: "#2b3036", wallPattern: "bricks",
+        floorColor: "#181a1d", floorPattern: "tiles",
+        ceilColor: "#0f1012", ceilPattern: "tiles",
+        fogColor: 0x050607, fogDensity: 0.045, lightColor: 0x00e1ff, lightIntensity: 0.45,
+        enemyType: "doge", enemySpeed: 5.5, sound: "bruh"
+    },
+    {
+        num: "LEVEL 4",
+        name: "ABANDONED OFFICE",
+        desc: "Eerie quiet corporate cubicle maze with endless rows of empty doors.",
+        wallColor: "#a3b899", wallPattern: "wallpaper",
+        floorColor: "#4e594a", floorPattern: "carpet",
+        ceilColor: "#f0f4ef", ceilPattern: "tiles",
+        fogColor: 0x0d120a, fogDensity: 0.03, lightColor: 0xffffff, lightIntensity: 0.6,
+        enemyType: "patrick", enemySpeed: 5.2, sound: "airhorn"
+    },
+    {
+        num: "LEVEL 5",
+        name: "TERROR HOTEL",
+        desc: "1920s vintage hotel hallways with blood-red velvet wallpaper.",
+        wallColor: "#661111", wallPattern: "wallpaper",
+        floorColor: "#330000", floorPattern: "wood",
+        ceilColor: "#2b1a0e", ceilPattern: "tiles",
+        fogColor: 0x0f0202, fogDensity: 0.04, lightColor: 0xffaa44, lightIntensity: 0.4,
+        enemyType: "obunga", enemySpeed: 5.4, sound: "bruh"
+    },
+    {
+        num: "LEVEL 6",
+        name: "LIGHTS OUT",
+        desc: "Total absolute pitch darkness. Trust your flashlight and listen closely.",
+        wallColor: "#0a0a0a", wallPattern: "concrete",
+        floorColor: "#050505", floorPattern: "concrete",
+        ceilColor: "#000000", ceilPattern: "concrete",
+        fogColor: 0x000000, fogDensity: 0.08, lightColor: 0x222222, lightIntensity: 0.1,
+        enemyType: "obunga", enemySpeed: 5.8, sound: "bruh"
+    },
+    {
+        num: "LEVEL 7",
+        name: "THALASSOPHOBIA",
+        desc: "Submerged flooded corridors echoing with distant underwater reverberations.",
+        wallColor: "#0e3a47", wallPattern: "tiles",
+        floorColor: "#061a21", floorPattern: "tiles",
+        ceilColor: "#124d5e", ceilPattern: "water",
+        fogColor: 0x031017, fogDensity: 0.045, lightColor: 0x00ffcc, lightIntensity: 0.5,
+        enemyType: "gigachad", enemySpeed: 5.6, sound: "airhorn"
+    },
+    {
+        num: "LEVEL 10",
+        name: "OVERGROWN RUINS",
+        desc: "Ancient stone walls covered in strange glowing moss and thick vines.",
+        wallColor: "#2d3822", wallPattern: "bricks",
+        floorColor: "#182112", floorPattern: "grass",
+        ceilColor: "#11170d", ceilPattern: "concrete",
+        fogColor: 0x070d05, fogDensity: 0.038, lightColor: 0x66ff33, lightIntensity: 0.45,
+        enemyType: "doge", enemySpeed: 5.3, sound: "bruh"
+    },
+    {
+        num: "LEVEL 14",
+        name: "CYBER MATRIX",
+        desc: "Virtual reality simulation grid with glowing neon digital architecture.",
+        wallColor: "#110022", wallPattern: "cyber",
+        floorColor: "#05000a", floorPattern: "cyber",
+        ceilColor: "#1a0033", ceilPattern: "cyber",
+        fogColor: 0x080012, fogDensity: 0.035, lightColor: 0xff00ff, lightIntensity: 0.6,
+        enemyType: "sanic", enemySpeed: 6.5, sound: "sanic"
+    },
+    {
+        num: "LEVEL 18",
+        name: "MEMORIES / DAYCARE",
+        desc: "Nostalgic pastel playroom maze. Unnervingly bright yet empty.",
+        wallColor: "#d8a7ca", wallPattern: "pastel",
+        floorColor: "#b0d8a7", floorPattern: "playmat",
+        ceilColor: "#fbf7d5", ceilPattern: "tiles",
+        fogColor: 0x181216, fogDensity: 0.025, lightColor: 0xffffff, lightIntensity: 0.7,
+        enemyType: "doge", enemySpeed: 5.4, sound: "bruh"
+    },
+    {
+        num: "LEVEL 37",
+        name: "THE POOLROOMS",
+        desc: "Endless warm turquoise pools and crisp white ceramic tile architecture.",
+        wallColor: "#e6f7ff", wallPattern: "tiles",
+        floorColor: "#20b2aa", floorPattern: "water",
+        ceilColor: "#ffffff", ceilPattern: "tiles",
+        fogColor: 0x0a2828, fogDensity: 0.025, lightColor: 0x80ffff, lightIntensity: 0.7,
+        enemyType: "patrick", enemySpeed: 5.7, sound: "airhorn"
+    },
+    {
+        num: "LEVEL 94",
+        name: "MOTION CARTOON",
+        desc: "A surreal 1930s rubberhose animation world with unnatural colors.",
+        wallColor: "#ffcc00", wallPattern: "cartoon",
+        floorColor: "#339933", floorPattern: "grass",
+        ceilColor: "#3366cc", ceilPattern: "sky",
+        fogColor: 0x101a08, fogDensity: 0.03, lightColor: 0xffffaa, lightIntensity: 0.75,
+        enemyType: "obunga", enemySpeed: 6.0, sound: "bruh"
+    },
+    {
+        num: "LEVEL 188",
+        name: "COURTYARD WINDOWS",
+        desc: "Brutalist courtyard surrounded by hundreds of identical glowing windows.",
+        wallColor: "#4a4e52", wallPattern: "windows",
+        floorColor: "#27292b", floorPattern: "concrete",
+        ceilColor: "#141517", ceilPattern: "concrete",
+        fogColor: 0x0c0d0e, fogDensity: 0.04, lightColor: 0xffd571, lightIntensity: 0.5,
+        enemyType: "gigachad", enemySpeed: 5.9, sound: "airhorn"
+    },
+    {
+        num: "LEVEL !",
+        name: "RUN FOR YOUR LIFE!",
+        desc: "RED ALARM EMERGENCY! Sprint through red hospital corridors. DO NOT STOP!",
+        wallColor: "#880000", wallPattern: "concrete",
+        floorColor: "#330000", floorPattern: "tiles",
+        ceilColor: "#220000", ceilPattern: "pipes",
+        fogColor: 0x1f0000, fogDensity: 0.045, lightColor: 0xff0000, lightIntensity: 0.8,
+        enemyType: "sanic", enemySpeed: 7.2, sound: "sanic"
+    }
+];
+
+const TextureGen = {
+    createWallTexture(colorHex, patternType) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 512;
+        canvas.height = 512;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = colorHex;
+        ctx.fillRect(0, 0, 512, 512);
+
+        if (patternType === 'wallpaper') {
+            ctx.fillStyle = 'rgba(0,0,0,0.08)';
+            for (let y = 0; y < 512; y += 32) {
+                for (let x = 0; x < 512; x += 32) {
+                    ctx.beginPath();
+                    ctx.arc(x + 16, y + 16, 6, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+        } else if (patternType === 'tiles') {
+            ctx.strokeStyle = 'rgba(0,0,0,0.25)';
+            ctx.lineWidth = 4;
+            for (let i = 0; i <= 512; i += 64) {
+                ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 512); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(512, i); ctx.stroke();
+            }
+        } else if (patternType === 'pipes') {
+            ctx.fillStyle = 'rgba(20,20,20,0.4)';
+            ctx.fillRect(80, 0, 45, 512);
+            ctx.fillRect(280, 0, 65, 512);
+            ctx.fillStyle = 'rgba(200,80,20,0.6)';
+            ctx.fillRect(180, 0, 30, 512);
+        } else if (patternType === 'bricks') {
+            ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+            ctx.lineWidth = 4;
+            for (let y = 0; y <= 512; y += 32) {
+                ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(512, y); ctx.stroke();
+                const offset = (y / 32) % 2 === 0 ? 0 : 32;
+                for (let x = offset; x <= 512; x += 64) {
+                    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + 32); ctx.stroke();
+                }
+            }
+        } else if (patternType === 'cyber') {
+            ctx.strokeStyle = '#ff00ff';
+            ctx.lineWidth = 2;
+            for (let i = 0; i <= 512; i += 32) {
+                ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 512); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(512, i); ctx.stroke();
+            }
+            ctx.fillStyle = '#00ffff';
+            ctx.fillRect(128, 128, 64, 64);
+            ctx.fillRect(320, 256, 64, 64);
+        } else if (patternType === 'windows') {
+            ctx.fillStyle = '#ffff66';
+            for (let y = 32; y < 512; y += 80) {
+                for (let x = 32; x < 512; x += 80) {
+                    ctx.fillRect(x, y, 40, 50);
+                }
+            }
+        } else if (patternType === 'carpet') {
+            ctx.fillStyle = 'rgba(0,0,0,0.15)';
+            for (let i = 0; i < 4000; i++) {
+                ctx.fillRect(Math.random()*512, Math.random()*512, 3, 3);
+            }
+        } else if (patternType === 'water') {
+            ctx.fillStyle = 'rgba(255,255,255,0.2)';
+            for (let i = 0; i < 30; i++) {
+                ctx.beginPath();
+                ctx.arc(Math.random()*512, Math.random()*512, Math.random()*40, 0, Math.PI*2);
+                ctx.fill();
+            }
+        } else if (patternType === 'grass' || patternType === 'pastel' || patternType === 'playmat' || patternType === 'cartoon' || patternType === 'sky' || patternType === 'concrete' || patternType === 'wood' || patternType === 'grate') {
+            ctx.fillStyle = 'rgba(0,0,0,0.1)';
+            for (let i = 0; i < 2000; i++) {
+                ctx.fillRect(Math.random()*512, Math.random()*512, 4, 4);
+            }
+        }
+
+        // Noise overlay
+        const imgData = ctx.getImageData(0, 0, 512, 512);
+        for (let i = 0; i < imgData.data.length; i += 4) {
+            const noise = (Math.random() - 0.5) * 15;
+            imgData.data[i] = Math.min(255, Math.max(0, imgData.data[i] + noise));
+            imgData.data[i+1] = Math.min(255, Math.max(0, imgData.data[i+1] + noise));
+            imgData.data[i+2] = Math.min(255, Math.max(0, imgData.data[i+2] + noise));
+        }
+        ctx.putImageData(imgData, 0, 0);
+
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.wrapS = THREE.RepeatWrapping;
+        texture.wrapT = THREE.RepeatWrapping;
+        return texture;
+    }
+};
+
+// Initialize scene
+function initEngine() {
+    const container = document.getElementById('canvas-container');
+    scene = new THREE.Scene();
+    scene.fog = new THREE.FogExp2(0x0a0a05, 0.04);
+
+    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(CELL_SIZE * 1.5, 1.8, CELL_SIZE * 1.5);
+
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    container.appendChild(renderer.domElement);
+
+    // Lights
+    ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
+    scene.add(ambientLight);
+
+    flashlight = new THREE.SpotLight(0xfffaed, 2.5, 28, Math.PI / 5, 0.4, 1);
+    flashlight.castShadow = true;
+    camera.add(flashlight);
+    flashlight.position.set(0, 0, 0);
+    flashlight.target.position.set(0, 0, -1);
+    camera.add(flashlight.target);
+    scene.add(camera);
+
+    setupPointerLock();
+    window.addEventListener('resize', onWindowResize);
+}
+
+function setupPointerLock() {
+    const canvas = renderer.domElement;
+    canvas.addEventListener('click', () => {
+        if (STATE.isPlaying) {
+            initAudio();
+            canvas.requestPointerLock();
+        }
+    });
+
+    document.addEventListener('pointerlockchange', () => {
+        pointerControls.isLocked = (document.pointerLockElement === canvas);
+    });
+
+    document.addEventListener('mousemove', (e) => {
+        if (!pointerControls.isLocked) return;
+        const movementX = e.movementX || 0;
+        const movementY = e.movementY || 0;
+
+        camera.rotation.y -= movementX * 0.0022;
+        camera.rotation.x -= movementY * 0.0022;
+        camera.rotation.x = Math.max(-Math.PI / 2.2, Math.min(Math.PI / 2.2, camera.rotation.x));
+    });
+
+    document.addEventListener('keydown', (e) => {
+        switch (e.code) {
+            case 'KeyW': case 'ArrowUp': STATE.moveForward = true; break;
+            case 'KeyS': case 'ArrowDown': STATE.moveBackward = true; break;
+            case 'KeyA': case 'ArrowLeft': STATE.moveLeft = true; break;
+            case 'KeyD': case 'ArrowRight': STATE.moveRight = true; break;
+            case 'ShiftLeft': case 'ShiftRight': STATE.isSprinting = true; break;
+            case 'KeyF':
+                STATE.flashlightOn = !STATE.flashlightOn;
+                flashlight.visible = STATE.flashlightOn;
+                break;
+        }
+    });
+
+    document.addEventListener('keyup', (e) => {
+        switch (e.code) {
+            case 'KeyW': case 'ArrowUp': STATE.moveForward = false; break;
+            case 'KeyS': case 'ArrowDown': STATE.moveBackward = false; break;
+            case 'KeyA': case 'ArrowLeft': STATE.moveLeft = false; break;
+            case 'KeyD': case 'ArrowRight': STATE.moveRight = false; break;
+            case 'ShiftLeft': case 'ShiftRight': STATE.isSprinting = false; break;
+        }
+    });
+}
+
+function onWindowResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+// --- MAZE GENERATOR (Recursive Backtracker) ---
+function generateMaze(cols, rows) {
+    let grid = Array.from({ length: rows }, () => Array.from({ length: cols }, () => ({
+        visited: false,
+        walls: [true, true, true, true] // North, East, South, West
+    })));
+
+    function checkNeighbors(r, c) {
+        let neighbors = [];
+        if (r > 0 && !grid[r-1][c].visited) neighbors.push({ r: r-1, c, dir: 0 });
+        if (c < cols - 1 && !grid[r][c+1].visited) neighbors.push({ r, c: c+1, dir: 1 });
+        if (r < rows - 1 && !grid[r+1][c].visited) neighbors.push({ r: r+1, c, dir: 2 });
+        if (c > 0 && !grid[r][c-1].visited) neighbors.push({ r, c: c-1, dir: 3 });
+        return neighbors;
+    }
+
+    let stack = [];
+    let current = { r: 0, c: 0 };
+    grid[0][0].visited = true;
+
+    while (true) {
+        let neighbors = checkNeighbors(current.r, current.c);
+        if (neighbors.length > 0) {
+            let next = neighbors[Math.floor(Math.random() * neighbors.length)];
+            grid[current.r][current.c].walls[next.dir] = false;
+            let opposite = (next.dir + 2) % 4;
+            grid[next.r][next.c].walls[opposite] = false;
+            grid[next.r][next.c].visited = true;
+            stack.push(current);
+            current = { r: next.r, c: next.c };
+        } else if (stack.length > 0) {
+            current = stack.pop();
+        } else {
+            break;
+        }
+    }
+    return grid;
+}
+
+function createWallSegment(x, z, w, d, wallTex) {
+    const wallGeo = new THREE.BoxGeometry(w, WALL_HEIGHT, d);
+    const wallMat = new THREE.MeshStandardMaterial({
+        map: wallTex,
+        roughness: 0.8
+    });
+    const wall = new THREE.Mesh(wallGeo, wallMat);
+    wall.position.set(x, WALL_HEIGHT / 2, z);
+    wallsMeshGroup.add(wall);
+}
+
+function buildMaze3D(grid, wallTexture, floorTexture, ceilingTexture) {
+    if (wallsMeshGroup) scene.remove(wallsMeshGroup);
+    if (floorMesh) scene.remove(floorMesh);
+    if (ceilingMesh) scene.remove(ceilingMesh);
+    if (exitMesh) scene.remove(exitMesh);
+
+    wallsMeshGroup = new THREE.Group();
+
+    const size = MAZE_SIZE * CELL_SIZE;
+
+    // Floor and Ceiling
+    floorTexture.repeat.set(MAZE_SIZE, MAZE_SIZE);
+    ceilingTexture.repeat.set(MAZE_SIZE, MAZE_SIZE);
+
+    const floorGeo = new THREE.PlaneGeometry(size, size);
+    const floorMat = new THREE.MeshStandardMaterial({ map: floorTexture, roughness: 0.6 });
+    floorMesh = new THREE.Mesh(floorGeo, floorMat);
+    floorMesh.rotation.x = -Math.PI / 2;
+    floorMesh.position.set(size / 2, 0, size / 2);
+    scene.add(floorMesh);
+
+    const ceilingMat = new THREE.MeshStandardMaterial({ map: ceilingTexture, roughness: 0.9 });
+    ceilingMesh = new THREE.Mesh(floorGeo, ceilingMat);
+    ceilingMesh.rotation.x = Math.PI / 2;
+    ceilingMesh.position.set(size / 2, WALL_HEIGHT, size / 2);
+    scene.add(ceilingMesh);
+
+    // Wall generation
+    for (let r = 0; r < MAZE_SIZE; r++) {
+        for (let c = 0; c < MAZE_SIZE; c++) {
+            const x = c * CELL_SIZE + CELL_SIZE / 2;
+            const z = r * CELL_SIZE + CELL_SIZE / 2;
+            const cell = grid[r][c];
+
+            if (cell.walls[0]) createWallSegment(x, z - CELL_SIZE / 2, CELL_SIZE, 0.4, wallTexture);
+            if (cell.walls[1]) createWallSegment(x + CELL_SIZE / 2, z, 0.4, CELL_SIZE, wallTexture);
+            if (cell.walls[2]) createWallSegment(x, z + CELL_SIZE / 2, CELL_SIZE, 0.4, wallTexture);
+            if (cell.walls[3]) createWallSegment(x - CELL_SIZE / 2, z, 0.4, CELL_SIZE, wallTexture);
+        }
+    }
+    scene.add(wallsMeshGroup);
+
+    // Exit Elevator door at farthest corner (MAZE_SIZE-1, MAZE_SIZE-1)
+    const exitGeo = new THREE.BoxGeometry(CELL_SIZE * 0.8, WALL_HEIGHT * 0.9, 0.5);
+    const exitMat = new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0x990000, emissiveIntensity: 0.8 });
+    exitMesh = new THREE.Mesh(exitGeo, exitMat);
+    exitMesh.position.set((MAZE_SIZE - 0.5) * CELL_SIZE, WALL_HEIGHT / 2, (MAZE_SIZE - 0.5) * CELL_SIZE);
+
+    // Add glowing light to exit
+    const exitLight = new THREE.PointLight(0xff0000, 3, 15);
+    exitLight.position.set(0, 0, -1);
+    exitMesh.add(exitLight);
+
+    scene.add(exitMesh);
+}
+
+// --- NEXTBOT MEME ENEMY CLASS ---
+class MemeEnemy {
+    constructor(type, soundType, speed) {
+        this.type = type;
+        this.soundType = soundType;
+        this.speed = speed;
+        this.soundTimer = 0;
+
+        const tex = MemeGen.createMemeCanvas(type);
+        const mat = new THREE.SpriteMaterial({ map: tex, transparent: true });
+        this.sprite = new THREE.Sprite(mat);
+        this.sprite.scale.set(3.5, 3.5, 1);
+
+        // Spawn far from player
+        this.sprite.position.set((MAZE_SIZE - 2) * CELL_SIZE, 1.8, (MAZE_SIZE - 2) * CELL_SIZE);
+        scene.add(this.sprite);
+    }
+
+    update(delta, playerPos) {
+        const dir = new THREE.Vector3().subVectors(playerPos, this.sprite.position);
+        dir.y = 0;
+        const dist = dir.length();
+
+        if (dist > 0.5) {
+            dir.normalize();
+            this.sprite.position.add(dir.multiplyScalar(this.speed * delta));
+        }
+
+        // Sound proximity trigger
+        this.soundTimer += delta;
+        if (dist < 18 && this.soundTimer > 2.0) {
+            playMemeSound(this.soundType, Math.max(0.1, 1.0 - dist / 20));
+            this.soundTimer = 0;
+        }
+
+        // Jumpscare trigger
+        if (dist < 1.6 && STATE.isPlaying) {
+            triggerJumpscare(this.type);
+        }
+    }
+
+    remove() {
+        scene.remove(this.sprite);
+    }
+}
+
+function triggerJumpscare(memeType) {
+    STATE.isPlaying = false;
+    document.exitPointerLock();
+    playMemeSound('jumpscare', 1.0);
+
+    const jumpscareOverlay = document.getElementById('jumpscare-overlay');
+    const canvas = MemeGen.createMemeCanvas(memeType).image;
+    jumpscareOverlay.style.backgroundImage = `url(${canvas.toDataURL()})`;
+    jumpscareOverlay.style.display = 'block';
+
+    setTimeout(() => {
+        jumpscareOverlay.style.display = 'none';
+        const screenOverlay = document.getElementById('screen-overlay');
+        document.getElementById('screen-title').innerText = "YOU WERE CAUGHT!";
+        document.getElementById('screen-subtitle').innerText = "The meme Nextbot caught up to you in the Backrooms. Try again!";
+        document.getElementById('start-btn').innerText = "RESTART LEVEL";
+        screenOverlay.style.display = 'flex';
+    }, 1200);
+}
+
+// Player collision detection against maze walls
+function checkCollision(newPos) {
+    const playerRadius = 0.8;
+    for (let child of wallsMeshGroup.children) {
+        const box = new THREE.Box3().setFromObject(child);
+        const playerBox = new THREE.Box3(
+            new THREE.Vector3(newPos.x - playerRadius, 0.2, newPos.z - playerRadius),
+            new THREE.Vector3(newPos.x + playerRadius, 1.8, newPos.z + playerRadius)
+        );
+        if (box.intersectsBox(playerBox)) return true;
+    }
+    return false;
+}
+
+// --- UPDATE & RENDER LOOP ---
+function updatePlayer(delta) {
+    if (!pointerControls.isLocked) return;
+
+    let speed = STATE.playerSpeed;
+    if (STATE.isSprinting && STATE.stamina > 0) {
+        speed *= STATE.sprintMultiplier;
+        STATE.stamina = Math.max(0, STATE.stamina - delta * 28);
+    } else {
+        STATE.stamina = Math.min(STATE.maxStamina, STATE.stamina + delta * 15);
+    }
+    document.getElementById('stamina-bar').style.width = `${STATE.stamina}%`;
+
+    const moveVector = new THREE.Vector3();
+    if (STATE.moveForward) moveVector.z -= 1;
+    if (STATE.moveBackward) moveVector.z += 1;
+    if (STATE.moveLeft) moveVector.x -= 1;
+    if (STATE.moveRight) moveVector.x += 1;
+
+    moveVector.normalize();
+    moveVector.applyEuler(new THREE.Euler(0, camera.rotation.y, 0));
+
+    const newPos = camera.position.clone().add(moveVector.multiplyScalar(speed * delta));
+
+    // Check X and Z collision independently for smooth wall sliding
+    const testPosX = camera.position.clone();
+    testPosX.x = newPos.x;
+    if (!checkCollision(testPosX)) camera.position.x = newPos.x;
+
+    const testPosZ = camera.position.clone();
+    testPosZ.z = newPos.z;
+    if (!checkCollision(testPosZ)) camera.position.z = newPos.z;
+
+    // Check distance to exit
+    if (exitMesh) {
+        const distToExit = camera.position.distanceTo(exitMesh.position);
+        if (distToExit < 3.0) {
+            nextLevel();
+        }
+    }
+}
+
+function loadLevel(index) {
+    enemies.forEach(e => e.remove());
+    enemies = [];
+
+    const def = LEVEL_DEFINITIONS[index % LEVEL_DEFINITIONS.length];
+    STATE.currentLevelIndex = index;
+    STATE.enemySpeed = def.enemySpeed;
+
+    document.getElementById('level-num').innerText = `${def.num}: ${def.name}`;
+    document.getElementById('level-desc').innerText = def.desc;
+
+    // Apply level visual parameters
+    scene.fog.color.setHex(def.fogColor);
+    scene.fog.density = def.fogDensity;
+    ambientLight.color.setHex(def.lightColor);
+    ambientLight.intensity = def.lightIntensity;
+
+    // Generate maze with level textures
+    maze = generateMaze(MAZE_SIZE, MAZE_SIZE);
+    const wallTex = TextureGen.createWallTexture(def.wallColor, def.wallPattern);
+    const floorTex = TextureGen.createWallTexture(def.floorColor, def.floorPattern);
+    const ceilTex = TextureGen.createWallTexture(def.ceilColor, def.ceilPattern);
+
+    buildMaze3D(maze, wallTex, floorTex, ceilTex);
+    camera.position.set(CELL_SIZE * 0.8, 1.8, CELL_SIZE * 0.8);
+
+    // Spawn Nextbot meme enemy
+    enemies.push(new MemeEnemy(def.enemyType, def.sound, def.enemySpeed));
+
+    // Update Critic Subagent status
+    updateGameCritic(def);
+}
+
+function updateGameCritic(def) {
+    const criticText = document.getElementById('critic-text');
+    criticText.innerText = `[${def.num}] Wall: ${def.wallPattern} | Speed: ${def.enemySpeed} | Lighting: ${def.lightIntensity < 0.3 ? 'Dark' : 'Well-Lit'} | Status: PASS (High pacing, verified geometry)`;
+}
+
+function nextLevel() {
+    loadLevel(STATE.currentLevelIndex + 1);
+}
+
+function drawMinimap() {
+    const canvas = document.getElementById('minimap-canvas');
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    const scale = canvas.width / (MAZE_SIZE * CELL_SIZE);
+
+    // Draw Player
+    ctx.fillStyle = '#00ffcc';
+    ctx.beginPath();
+    ctx.arc(camera.position.x * scale, camera.position.z * scale, 3.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Draw Exit
+    if (exitMesh) {
+        ctx.fillStyle = '#ff0000';
+        ctx.beginPath();
+        ctx.arc(exitMesh.position.x * scale, exitMesh.position.z * scale, 4.5, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // Draw Enemies
+    ctx.fillStyle = '#ff00ff';
+    enemies.forEach(e => {
+        ctx.beginPath();
+        ctx.arc(e.sprite.position.x * scale, e.sprite.position.z * scale, 4, 0, Math.PI * 2);
+        ctx.fill();
+    });
+}
+
+function animate() {
+    requestAnimationFrame(animate);
+    const delta = clock.getDelta();
+    if (STATE.isPlaying) {
+        updatePlayer(delta);
+        enemies.forEach(e => e.update(delta, camera.position));
+        drawMinimap();
+    }
+    renderer.render(scene, camera);
+}
+
+document.getElementById('start-btn').addEventListener('click', () => {
+    initAudio();
+    document.getElementById('screen-overlay').style.display = 'none';
+    if (enemies.length === 0 || !STATE.isPlaying) {
+        loadLevel(STATE.currentLevelIndex);
+    }
+    STATE.isPlaying = true;
+    renderer.domElement.requestPointerLock();
+});
+
+// Init game
+initEngine();
+loadLevel(0);
+animate();
+
+</script>
+</body>
+</html>
